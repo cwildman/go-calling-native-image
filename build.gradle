@@ -1,0 +1,33 @@
+plugins {
+    id 'java-library'
+    id 'org.graalvm.buildtools.native' version '0.10.2'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation libs.junit.jupiter
+
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+graalvmNative {
+    binaries {
+        main {
+            sharedLibrary.set(true)
+            buildArgs.add("-o libnative")
+        }
+    }
+}
