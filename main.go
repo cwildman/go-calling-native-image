@@ -34,7 +34,7 @@ func invoke(isolate *C.graal_isolate_t, wg *sync.WaitGroup) {
 		log.Fatal(err)
 	}
 
-	C.do_stuff(thread)
+	C.increment(thread)
 	return
 }
 
@@ -56,16 +56,19 @@ func main() {
 	}
 
 	var wg sync.WaitGroup
+	wg.Add(count)
 	for i := 0; i < count; i++ {
-		wg.Add(1)
-		go func() {
-			invoke(isolate, &wg)
-		}()
+		go invoke(isolate, &wg)
 	}
 	wg.Wait()
 
-	result := C.do_stuff(thread)
-	log.Printf("Final count: %d\n", result)
+	result := C.get(thread)
+
+	if result != C.int(count) {
+		log.Fatalf("result(%d) does not match expected count(%d)\n", result, count)
+	} else {
+		log.Printf("result(%d) == expected count(%d)\n", result, count)
+	}
 
 	if C.graal_detach_all_threads_and_tear_down_isolate(thread) != 0 {
 		log.Fatal("could not detach and tear down isolate successfully")

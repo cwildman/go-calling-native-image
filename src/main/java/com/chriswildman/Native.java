@@ -3,11 +3,18 @@ package com.chriswildman;
 import org.graalvm.nativeimage.IsolateThread;
 import org.graalvm.nativeimage.c.function.CEntryPoint;
 
-public class Native {
-    public static int COUNT = 0;
+import java.util.concurrent.atomic.AtomicInteger;
 
-    @CEntryPoint(name = "do_stuff")
-    public static int doStuff(final IsolateThread thread) {
-        return ++COUNT;
+public class Native {
+    public static AtomicInteger COUNT = new AtomicInteger(0);
+
+    @CEntryPoint(name = "increment")
+    public static int increment(final IsolateThread thread) {
+        return COUNT.addAndGet(1);
+    }
+
+    @CEntryPoint(name = "get")
+    public static int get(final IsolateThread thread) {
+        return COUNT.get();
     }
 }
