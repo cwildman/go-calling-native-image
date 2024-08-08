@@ -1,9 +1,5 @@
 package main
 
-// #cgo CFLAGS: -I${SRCDIR}/build/native/nativeCompile
-// #cgo LDFLAGS: -L${SRCDIR}/build/native/nativeCompile -lnative
-// #include <libnative.h>
-import "C"
 import (
 	"log"
 	"os"
@@ -12,11 +8,43 @@ import (
 	"sync"
 )
 
+// #cgo CFLAGS: -I${SRCDIR}/build/native/nativeCompile
+// #cgo LDFLAGS: -L${SRCDIR}/build/native/nativeCompile -lnative
+// #include <libnative.h>
+//
+// static graal_isolatethread_t* getOrAttachAndEnter(graal_isolate_t* isolate) {
+//   graal_isolatethread_t *thread = graal_get_current_thread(isolate);
+//   if (thread == NULL) {
+//     if (graal_attach_thread(isolate, &thread) != 0) {
+//       return NULL;
+//     }
+//   }
+//  return thread;
+// }
+//
+// static int increment_wrapper(graal_isolate_t* isolate) {
+//   graal_isolatethread_t *thread = getOrAttachAndEnter(isolate);
+//   if (thread == NULL) {
+//     return -1;
+//   }
+//   return increment(thread);
+// }
+//
+// static int get_wrapper(graal_isolate_t* isolate) {
+//   graal_isolatethread_t *thread = getOrAttachAndEnter(isolate);
+//   if (thread == NULL) {
+//     return -1;
+//   }
+//   return get(thread);
+// }
+//
+import "C"
+
 var Pnr = new(runtime.Pinner)
 
 func invoke(isolate *C.graal_isolate_t, wg *sync.WaitGroup) {
 	defer wg.Done()
-	C.increment(isolate)
+	C.increment_wrapper(isolate)
 	return
 }
 
@@ -44,7 +72,7 @@ func main() {
 	}
 	wg.Wait()
 
-	result := C.get(isolate)
+	result := C.get_wrapper(isolate)
 
 	if result != C.int(count) {
 		log.Fatalf("result(%d) does not match expected count(%d)\n", result, count)
