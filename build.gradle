@@ -7,13 +7,11 @@ repositories {
     mavenCentral()
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
+dependencies {
+    implementation group: 'org.graalvm.nativeimage', name: 'svm', version: '23.0.0'
 }
 
-tasks.named('test') {
+test {
     useJUnitPlatform()
 }
 
@@ -22,6 +20,7 @@ graalvmNative {
         main {
             sharedLibrary.set(true)
             buildArgs.add("-o libnative")
+            buildArgs.add("-H:+AllowDeprecatedBuilderClassesOnImageClasspath")
         }
     }
 }
