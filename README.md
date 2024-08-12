@@ -1,17 +1,46 @@
 # Go Calling A Native Image
 
-This repository is meant to demonstrate that Go cannot work with a GraalVM native image
-using the Native C API.
+This repository demonstrates how to call into a GraalVM native image from Go
+using CGO and the Native C API.
 
-Go uses Goroutines for concurrency and Goroutines are not pinned to a single OS thread, instead they can:
+Go's use of goroutines creates challenges when interacting with a native image because
+a goroutine is not pinned to a single OS thread. Because goroutines can move between threads
+they can create illegal states within the native image that result in a fatal error.
 
-1. Switch between OS threads as they execute
-2. Yield and be preempted by a different Goroutine executing on the same OS thread
+## The Solution
 
-I suspect this creates at least two problems:
+To avoid this problem one can build C wrapper functions within their CGO code
+that fetch/attach the IsolateThread just before invoking an entry point. This guarantees
+that a single OS thread is used for the entire duration of getting an IsolateThread and
+invoking the entrypoint.
 
-1. Two Goroutines can invoke the same entrypoint from the same OS thread before one of them has completed, which causes the VM to crash.
-2. There is no guarantee that a goroutine has the correct isolate thread handle when invoking an entrypoint, because the OS thread may change by the time the entrypoint is invoked.
+For example:
+
+```
+// #cgo LDFLAGS: -L${SRCDIR} -lnative
+// #include <libnative.h>
+//
+// static graal_isolatethread_t* getOrAttachAndEnter(graal_isolate_t* isolate) {
+//   graal_isolatethread_t *thread = graal_get_current_thread(isolate);
+//   if (thread == NULL) {
+//     if (graal_attach_thread(isolate, &thread) != 0) {
+//       return NULL;
+//     }
+//   }
+//  return thread;
+// }
+//
+// static int my_entrypoint_wrapper(graal_isolate_t* isolate) {
+//   graal_isolatethread_t *thread = getOrAttachAndEnter(isolate);
+//   if (thread == NULL) {
+//     return -1;
+//   }
+//   return my_entrypoint(thread);
+// }
+import "C"
+```
+
+Thank you to @christianhaeubl and @vjovanov for helping me figure this out.
 
 ## Running The Example
 
@@ -27,13 +56,10 @@ I suspect this creates at least two problems:
 go run .
 ```
 
-The default runs with only 10 goroutines and usually completes successfully.
+The default runs with only 10 goroutines.
 
-3. Now try running with 1000 goroutines. If it doesn't fail right away try it a few times:
+3. Now try running with 1000 or more goroutines. Previously this would fail, but it now works with the CGO wrapper to fetch the IsolateThread.
 
 ```
 go run . 1000
 ```
-
-Eventually you will see a `Fatal error: StackOverflowError:` with a large dump of debug data.
-
